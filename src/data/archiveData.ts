@@ -84,13 +84,22 @@ export interface MotionReel {
   keyframes: MotionKeyframe[];
 }
 
+export function resolveAssetPath(assetPath: string): string {
+  if (/^(https?:)?\/\//i.test(assetPath) || assetPath.startsWith('data:') || assetPath.startsWith('blob:')) {
+    return assetPath;
+  }
+  const clean = assetPath.replace(/^\/+/, '');
+  const base = import.meta.env.BASE_URL || './';
+  return base.endsWith('/') ? `${base}${clean}` : `${base}/${clean}`;
+}
+
 export const PHOTO_ASSETS = {
-  slateArch: '/src/assets/images/photo_2026_slate_architecture_1795234152973.jpg',
-  coastalMist: '/src/assets/images/photo_2026_coastal_mist_1795234152082.jpg',
-  desertLight: '/src/assets/images/photo_2025_desert_light_1795234152078.jpg',
-  galleryWindow: '/src/assets/images/photo_2025_gallery_window_1795234152585.jpg',
-  oliveHills: '/src/assets/images/photo_2024_olive_hills_1795234152669.jpg',
-  silverRain: '/src/assets/images/photo_2023_silver_rain_1795234152807.jpg',
+  slateArch: resolveAssetPath('src/assets/images/photo_2026_slate_architecture_1795234152973.jpg'),
+  coastalMist: resolveAssetPath('src/assets/images/photo_2026_coastal_mist_1795234152082.jpg'),
+  desertLight: resolveAssetPath('src/assets/images/photo_2025_desert_light_1795234152078.jpg'),
+  galleryWindow: resolveAssetPath('src/assets/images/photo_2025_gallery_window_1795234152585.jpg'),
+  oliveHills: resolveAssetPath('src/assets/images/photo_2024_olive_hills_1795234152669.jpg'),
+  silverRain: resolveAssetPath('src/assets/images/photo_2023_silver_rain_1795234152807.jpg'),
 } as const;
 
 export const YEAR_CONFIGS: YearConfig[] = [

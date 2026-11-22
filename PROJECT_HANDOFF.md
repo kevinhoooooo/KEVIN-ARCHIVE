@@ -112,8 +112,9 @@
    - 相机基础 `fov = 36`，`getProjectorCameraPose()` 与 `getInspectCameraPose()` 均按视场角和容器宽高比（`isPortrait = rawAspect < 0.85`）实时计算，修改 `PROJECTOR_DIMS` 或 UI 顶部 `<header>` 高度后，应同步核对 `topFrac` / `footFrac` 比例参数。
 3. **跨层级 `attach()` 时的缩放与四元数还原**：
    - 电影片盘在抽屉内为 `1:1`，挂载到 `projectorStage.supplyMount` 时随放映机整体缩放到 `0.66 / 0.62`。在 `selectReelForInspection` 和 `returnToDrawer` 中使用 `group.attach(...)` 时务必保持缩放插值同步并在回调中重置局部 `scale.set(1, 1, 1)`，避免物体突变。
-4. **纯静态部署（含极空间 NAS）**：
-   - 所有资源路径使用根相对路径（如 `/assets/...`、`/src/assets/...`），部署到 Nginx / Docker 时需挂在独立端口或根域名 `/` 下；若计划未来接入极空间本地海量照片/视频，推荐**直接把极空间中整理好的总文件夹挂载为 Docker Volume**（例如 `-v /极空间总目录:/media:ro`），并搭配轻量级 `server.ts`（Express + `exifr` + `ffprobe` + `sharp`）自动扫描目录、提取 EXIF/视频时长并生成列表 JSON 与缩略图缓存，无需重复维护厚重的网页上传后台。
+4. **纯静态部署（含 GitHub Pages 与极空间 NAS）**：
+   - `vite.config.ts` 已设置 `base: process.env.VITE_BASE_PATH || './'`，且本地图片路径通过 `resolveAssetPath()` 自动兼容根域名 `/` 与 GitHub Pages 二级子路径（`https://<user>.github.io/<repo>/`）；仓库内置 `.github/workflows/deploy.yml` 可一键配合 GitHub Actions 自动部署。
+   - 若计划未来接入极空间本地海量照片/视频，推荐**直接把极空间中整理好的总文件夹挂载为 Docker Volume**（例如 `-v /极空间总目录:/media:ro`），并搭配轻量级 `server.ts`（Express + `exifr` + `ffprobe` + `sharp`）自动扫描目录、提取 EXIF/视频时长并生成列表 JSON 与缩略图缓存，无需重复维护厚重的网页上传后台。
 
 ---
 

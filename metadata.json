@@ -1,0 +1,6 @@
+{
+  "name": "BABEL PHOTO",
+  "description": "Minimalist 3D personal film photography archive organized by year canisters and 35mm translucent film strips.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

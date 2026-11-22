@@ -1,17 +1,24 @@
 import * as THREE from 'three';
-import { ArchiveYear, PhotoFrame, YEAR_MAP } from '../data/archiveData';
+import { ArchiveYear, PhotoFrame, getYearConfig, isSafeMediaUrl } from '../data/archiveData';
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>();
 
 export function loadImageCached(url: string): Promise<HTMLImageElement> {
+  if (!isSafeMediaUrl(url)) {
+    return Promise.reject(new Error('Unsafe media URL'));
+  }
   const existing = imageCache.get(url);
   if (existing) return existing;
 
   const promise = new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
+    img.referrerPolicy = 'no-referrer';
     img.onload = () => resolve(img);
-    img.onerror = (err) => reject(err);
+    img.onerror = (err) => {
+      imageCache.delete(url);
+      reject(err);
+    };
     img.src = url;
   });
 
@@ -27,7 +34,7 @@ export function createCanisterLabelTexture(
   frameCount: number,
   maxAnisotropy: number
 ): THREE.CanvasTexture {
-  const cfg = YEAR_MAP[year];
+  const cfg = getYearConfig(year);
   const width = 1024;
   const height = 512;
   const canvas = document.createElement('canvas');
@@ -122,7 +129,8 @@ export function createYearPlaqueTexture(
   year: ArchiveYear,
   accentColor: string,
   subtitle: string,
-  maxAnisotropy: number
+  maxAnisotropy: number,
+  rollCount = 10
 ): THREE.CanvasTexture {
   const width = 512;
   const height = 160;
@@ -172,7 +180,7 @@ export function createYearPlaqueTexture(
   ctx.textAlign = 'right';
   ctx.fillStyle = '#75797E';
   ctx.font = '300 20px "IBM Plex Mono", monospace';
-  ctx.fillText('10 ROLLS', width - 28, 78);
+  ctx.fillText(`${rollCount} ROLLS`, width - 28, 78);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -255,7 +263,7 @@ export function createCineReelHubTexture(
   fps: number,
   maxAnisotropy: number
 ): THREE.CanvasTexture {
-  const cfg = YEAR_MAP[year];
+  const cfg = getYearConfig(year);
   const size = 512;
   const canvas = document.createElement('canvas');
   canvas.width = size;

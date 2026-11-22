@@ -12,7 +12,7 @@ import {
   VolumeX,
   X,
 } from 'lucide-react';
-import { FilmRoll, MotionReel, YEAR_MAP } from '../data/archiveData';
+import { FilmRoll, MotionReel, getYearConfig, isSafeMediaUrl } from '../data/archiveData';
 
 interface LoupeModalProps {
   roll: FilmRoll | null;
@@ -489,7 +489,9 @@ export function LoupeModal({
   // 1. MOTION REEL SCREENING MODE (FULLSCREEN CINEMA + NOTES SPLIT)
   // =========================================================================
   if (isMotion && motionReel && activeKeyframe) {
-    const yearCfg = YEAR_MAP[motionReel.year];
+    const yearCfg = getYearConfig(motionReel.year);
+    const safeVideoUrl =
+      motionReel.videoUrl && isSafeMediaUrl(motionReel.videoUrl) ? motionReel.videoUrl : '';
 
     const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
       const t = e.touches[0];
@@ -529,10 +531,10 @@ export function LoupeModal({
             onClick={togglePlayPause}
             className="absolute inset-0 flex items-center justify-center cursor-pointer touch-pan-y"
           >
-            {motionReel.videoUrl ? (
+            {safeVideoUrl ? (
               <video
                 ref={videoRef}
-                src={motionReel.videoUrl}
+                src={safeVideoUrl}
                 playsInline
                 autoPlay
                 loop
@@ -754,10 +756,10 @@ export function LoupeModal({
               onClick={togglePlayPause}
               className="relative flex items-center justify-center w-full h-[38vh] sm:h-[48vh] lg:h-[56vh] overflow-hidden cursor-pointer touch-pan-y"
             >
-              {motionReel.videoUrl ? (
+              {safeVideoUrl ? (
                 <video
                   ref={videoRef}
-                  src={motionReel.videoUrl}
+                  src={safeVideoUrl}
                   playsInline
                   autoPlay
                   loop
@@ -920,7 +922,8 @@ export function LoupeModal({
   // =========================================================================
   if (!isStills || !roll || frameIndex === null || !frame) return null;
 
-  const yearCfg = YEAR_MAP[roll.year];
+  const yearCfg = getYearConfig(roll.year);
+  const safeImageUrl = isSafeMediaUrl(frame.imageUrl) ? frame.imageUrl : '';
   const totalFrames = roll.frames.length;
 
   const handlePrev = () => {
@@ -968,10 +971,10 @@ export function LoupeModal({
           onTouchEnd={handleTouchEnd}
           className="absolute inset-0 flex items-center justify-center p-3 sm:p-6 md:p-10 touch-pan-y"
         >
-          {!imgError ? (
+          {!imgError && safeImageUrl ? (
             <div className="relative w-full h-full overflow-hidden flex items-center justify-center">
               <img
-                src={frame.imageUrl}
+                src={safeImageUrl}
                 alt={`${frame.title} — ${frame.location}`}
                 referrerPolicy="no-referrer"
                 onError={() => setImgError(true)}
@@ -1159,7 +1162,7 @@ export function LoupeModal({
           onTouchEnd={handleTouchEnd}
           className="relative flex items-center justify-center w-full max-w-4xl h-[42vh] sm:h-[50vh] lg:h-full lg:max-h-[64vh] shrink-0 lg:shrink bg-[#0D0E10] border border-white/10 p-2.5 sm:p-3 md:p-5 touch-pan-y"
         >
-          {!imgError ? (
+          {!imgError && safeImageUrl ? (
             <button
               type="button"
               onClick={() => setIsFullscreen(true)}
@@ -1167,7 +1170,7 @@ export function LoupeModal({
               className="relative w-full h-full overflow-hidden flex items-center justify-center cursor-zoom-in focus-visible:outline-2 focus-visible:outline-white"
             >
               <img
-                src={frame.imageUrl}
+                src={safeImageUrl}
                 alt={`${frame.title} — ${frame.location}`}
                 referrerPolicy="no-referrer"
                 onError={() => setImgError(true)}
@@ -1216,6 +1219,11 @@ export function LoupeModal({
             <p className="text-sm font-light text-[#B8BABC] mt-0.5 sm:mt-1">{frame.location}</p>
           </div>
 
+          {roll.description && (
+            <p className="text-xs font-light leading-relaxed text-[#A3A7AC] border-l border-white/20 pl-3">
+              {roll.description}
+            </p>
+          )}
           <p className="text-sm font-light leading-relaxed text-[#D8D3CA]">{frame.notes}</p>
 
           <dl className="grid grid-cols-2 gap-y-3 gap-x-4 pt-3 sm:pt-4 border-t border-white/10 text-xs">

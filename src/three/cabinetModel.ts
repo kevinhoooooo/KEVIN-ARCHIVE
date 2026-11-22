@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MOTION_ARCHIVE_DATA, YearConfig } from '../data/archiveData';
+import { YearConfig } from '../data/archiveData';
 import {
   createMotionPlaqueTexture,
   createYearPlaqueTexture,
@@ -64,7 +64,9 @@ export function buildCabinetModel(
   config: YearConfig,
   gridIndex: number,
   totalCabinets: number,
-  maxAnisotropy: number
+  maxAnisotropy: number,
+  stillsRollCount = 10,
+  motionReelCount = 4
 ): CabinetInstance {
   const {
     CABINET_W,
@@ -417,7 +419,8 @@ export function buildCabinetModel(
     config.year,
     config.color,
     config.filmStock,
-    maxAnisotropy
+    maxAnisotropy,
+    stillsRollCount
   );
   const plaqueMat = new THREE.MeshPhysicalMaterial({
     map: plaqueTex,
@@ -485,11 +488,10 @@ export function buildCabinetModel(
     lowerFrontH
   );
 
-  const reelCount = MOTION_ARCHIVE_DATA[config.year]?.length ?? 4;
   const motionPlaqueTex = createMotionPlaqueTexture(
     config.year,
     config.color,
-    reelCount,
+    motionReelCount,
     maxAnisotropy
   );
   const motionPlaqueMat = new THREE.MeshPhysicalMaterial({

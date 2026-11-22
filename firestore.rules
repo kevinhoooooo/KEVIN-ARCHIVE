@@ -1,0 +1,234 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Shared Hardened Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedBootstrapAdmin() {
+      return isSignedIn() &&
+        request.auth.token.email == 'ihuxihui@gmail.com' &&
+        request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedBootstrapAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isSafeMediaUrl(url) {
+      return url is string &&
+        url.size() <= 1000 &&
+        (
+          url.size() == 0 ||
+          url.matches('^https?://.*') ||
+          url.matches('^(\\./|/)[^\\s]+$')
+        );
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidArchiveSettings(data) {
+      return data.keys().hasAll(['cloudSeeded', 'archiveTitle', 'updatedBy', 'updatedAt']) &&
+        data.keys().hasOnly(['cloudSeeded', 'archiveTitle', 'updatedBy', 'updatedAt']) &&
+        data.cloudSeeded is bool &&
+        data.archiveTitle is string && data.archiveTitle.size() >= 1 && data.archiveTitle.size() <= 80 &&
+        data.updatedBy is string && data.updatedBy == request.auth.uid && data.updatedBy.size() <= 128 &&
+        data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidYearConfig(data) {
+      return data.keys().hasAll([
+          'year', 'label', 'color', 'tintHex', 'filmStock', 'iso',
+          'seriesTheme', 'cabinetX', 'sortOrder', 'enabled', 'ownerUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'year', 'label', 'color', 'tintHex', 'filmStock', 'iso',
+          'seriesTheme', 'cabinetX', 'sortOrder', 'enabled', 'ownerUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.year is string && data.year.size() == 4 && data.year.matches('^[0-9]{4}$') &&
+        data.label is string && data.label.size() >= 1 && data.label.size() <= 16 &&
+        data.color is string && data.color.size() == 7 && data.color.matches('^#[0-9a-fA-F]{6}$') &&
+        data.tintHex is number &&
+        data.filmStock is string && data.filmStock.size() >= 1 && data.filmStock.size() <= 40 &&
+        data.iso is number && data.iso >= 1 && data.iso <= 102400 &&
+        data.seriesTheme is string && data.seriesTheme.size() >= 1 && data.seriesTheme.size() <= 120 &&
+        data.cabinetX is number &&
+        data.sortOrder is number &&
+        data.enabled is bool &&
+        data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidFilmRoll(data) {
+      return data.keys().hasAll([
+          'id', 'year', 'rollNumber', 'rollCode', 'title', 'filmStock',
+          'iso', 'location', 'month', 'enabled', 'frames', 'ownerUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'year', 'rollNumber', 'rollCode', 'title', 'description', 'filmStock',
+          'iso', 'location', 'month', 'enabled', 'frames', 'ownerUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.year is string && data.year.size() == 4 && data.year.matches('^[0-9]{4}$') &&
+        data.rollNumber is number && data.rollNumber >= 1 && data.rollNumber <= 999 &&
+        data.rollCode is string && data.rollCode.size() >= 1 && data.rollCode.size() <= 32 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+        data.filmStock is string && data.filmStock.size() >= 1 && data.filmStock.size() <= 40 &&
+        data.iso is number && data.iso >= 1 && data.iso <= 102400 &&
+        data.location is string && data.location.size() >= 1 && data.location.size() <= 120 &&
+        data.month is string && data.month.size() >= 1 && data.month.size() <= 16 &&
+        data.enabled is bool &&
+        data.frames is list && data.frames.size() <= 36 &&
+        (data.frames.size() == 0 || (data.frames[0] is map && 'imageUrl' in data.frames[0] && isSafeMediaUrl(data.frames[0].imageUrl))) &&
+        data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidMotionReel(data) {
+      return data.keys().hasAll([
+          'id', 'year', 'reelNumber', 'reelCode', 'title', 'filmStock', 'format',
+          'fps', 'durationSec', 'durationLabel', 'camera', 'lens', 'location',
+          'month', 'notes', 'enabled', 'keyframes', 'ownerUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'year', 'reelNumber', 'reelCode', 'title', 'filmStock', 'format',
+          'fps', 'durationSec', 'durationLabel', 'camera', 'lens', 'location',
+          'month', 'notes', 'videoUrl', 'enabled', 'keyframes', 'ownerUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.year is string && data.year.size() == 4 && data.year.matches('^[0-9]{4}$') &&
+        data.reelNumber is number && data.reelNumber >= 1 && data.reelNumber <= 999 &&
+        data.reelCode is string && data.reelCode.size() >= 1 && data.reelCode.size() <= 32 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+        data.filmStock is string && data.filmStock.size() >= 1 && data.filmStock.size() <= 40 &&
+        data.format is string && data.format.size() >= 1 && data.format.size() <= 40 &&
+        data.fps is number && data.fps >= 1 && data.fps <= 120 &&
+        data.durationSec is number && data.durationSec >= 1 && data.durationSec <= 7200 &&
+        data.durationLabel is string && data.durationLabel.size() >= 1 && data.durationLabel.size() <= 16 &&
+        data.camera is string && data.camera.size() >= 1 && data.camera.size() <= 80 &&
+        data.lens is string && data.lens.size() >= 1 && data.lens.size() <= 80 &&
+        data.location is string && data.location.size() >= 1 && data.location.size() <= 120 &&
+        data.month is string && data.month.size() >= 1 && data.month.size() <= 16 &&
+        data.notes is string && data.notes.size() <= 1000 &&
+        (!('videoUrl' in data) || isSafeMediaUrl(data.videoUrl)) &&
+        data.enabled is bool &&
+        data.keyframes is list && data.keyframes.size() <= 12 &&
+        (data.keyframes.size() == 0 || (data.keyframes[0] is map && 'imageUrl' in data.keyframes[0] && isSafeMediaUrl(data.keyframes[0].imageUrl))) &&
+        data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidAdminRecord(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt']) &&
+        data.keys().hasOnly(['email', 'role', 'createdAt']) &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+        data.role == 'admin' &&
+        data.createdAt is timestamp && data.createdAt == request.time;
+    }
+
+    // 4. Collection Rules
+    match /test/{docId} {
+      allow get: if docId == 'connection';
+      allow list, write: if false;
+    }
+
+    match /archiveSettings/{settingId} {
+      allow get: if isValidId(settingId) && (settingId == 'config' || isAdmin());
+      allow list: if isVerifiedBootstrapAdmin();
+      allow create: if isValidId(settingId) && settingId == 'config' && isAdmin() &&
+        isValidArchiveSettings(incoming());
+      allow update: if isValidId(settingId) && settingId == 'config' && isAdmin() &&
+        isValidArchiveSettings(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['cloudSeeded', 'archiveTitle', 'updatedBy', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /years/{yearId} {
+      allow get: if isValidId(yearId) && ((resource != null && existing().enabled == true) || isAdmin());
+      allow list: if resource.data.enabled == true || isVerifiedBootstrapAdmin();
+      allow create: if isValidId(yearId) && isAdmin() && isValidYearConfig(incoming()) &&
+        incoming().year == yearId &&
+        incoming().ownerUid == request.auth.uid &&
+        incoming().createdAt == request.time;
+      allow update: if isValidId(yearId) && isAdmin() && isValidYearConfig(incoming()) &&
+        incoming().year == existing().year &&
+        incoming().ownerUid == existing().ownerUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'label', 'color', 'tintHex', 'filmStock', 'iso',
+          'seriesTheme', 'cabinetX', 'sortOrder', 'enabled', 'updatedAt'
+        ]);
+      allow delete: if isValidId(yearId) && isAdmin();
+    }
+
+    match /filmRolls/{rollId} {
+      allow get: if isValidId(rollId) && ((resource != null && existing().enabled == true) || isAdmin());
+      allow list: if resource.data.enabled == true || isVerifiedBootstrapAdmin();
+      allow create: if isValidId(rollId) && isAdmin() && isValidFilmRoll(incoming()) &&
+        incoming().id == rollId &&
+        incoming().ownerUid == request.auth.uid &&
+        incoming().createdAt == request.time;
+      allow update: if isValidId(rollId) && isAdmin() && isValidFilmRoll(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().ownerUid == existing().ownerUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'year', 'rollNumber', 'rollCode', 'title', 'description', 'filmStock',
+          'iso', 'location', 'month', 'enabled', 'frames', 'updatedAt'
+        ]);
+      allow delete: if isValidId(rollId) && isAdmin();
+    }
+
+    match /motionReels/{reelId} {
+      allow get: if isValidId(reelId) && ((resource != null && existing().enabled == true) || isAdmin());
+      allow list: if resource.data.enabled == true || isVerifiedBootstrapAdmin();
+      allow create: if isValidId(reelId) && isAdmin() && isValidMotionReel(incoming()) &&
+        incoming().id == reelId &&
+        incoming().ownerUid == request.auth.uid &&
+        incoming().createdAt == request.time;
+      allow update: if isValidId(reelId) && isAdmin() && isValidMotionReel(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().ownerUid == existing().ownerUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'year', 'reelNumber', 'reelCode', 'title', 'filmStock', 'format',
+          'fps', 'durationSec', 'durationLabel', 'camera', 'lens', 'location',
+          'month', 'notes', 'videoUrl', 'enabled', 'keyframes', 'updatedAt'
+        ]);
+      allow delete: if isValidId(reelId) && isAdmin();
+    }
+
+    match /admins/{adminUid} {
+      allow get: if isSignedIn() && (request.auth.uid == adminUid || isAdmin());
+      allow list: if isVerifiedBootstrapAdmin();
+      allow create: if isValidId(adminUid) && isAdmin() && isValidAdminRecord(incoming());
+      allow update: if false;
+      allow delete: if isValidId(adminUid) && isAdmin();
+    }
+  }
+}

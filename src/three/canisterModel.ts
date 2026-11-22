@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FilmRoll, MotionReel, PhotoFrame, YEAR_MAP } from '../data/archiveData';
+import { FilmRoll, MotionReel, PhotoFrame, getYearConfig } from '../data/archiveData';
 import {
   MotionFrameStripeMeta,
   createCanisterLabelTexture,
@@ -313,7 +313,7 @@ export function buildFilmStrip3D(
         rawItem: frame,
       }));
 
-  const yearCfg = YEAR_MAP[source.year];
+  const yearCfg = getYearConfig(source.year);
   const group = new THREE.Group();
   group.name = `film-strip-${source.id}`;
 

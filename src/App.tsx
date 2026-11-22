@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Archive,
   ArrowLeft,
@@ -11,26 +11,31 @@ import {
   Maximize2,
   Pause,
   Play,
+  SlidersHorizontal,
   Volume2,
   VolumeX,
 } from 'lucide-react';
 import {
-  ARCHIVE_DATA,
   ArchiveYear,
   DrawerCategory,
   FilmRoll,
-  MOTION_ARCHIVE_DATA,
   MotionKeyframe,
   MotionReel,
   PhotoFrame,
-  YEAR_CONFIGS,
-  YEAR_MAP,
+  getYearConfig,
+  setRuntimeYearMap,
 } from './data/archiveData';
 import { ArchiveSceneManager, ArchiveViewMode } from './three/ArchiveSceneManager';
 import { FILM_STRIP_CONSTANTS } from './three/canisterModel';
 import { ProjectorPlaybackSnapshot } from './three/projectorModel';
 import { LoupeModal } from './components/LoupeModal';
 import { ArchiveIndexDrawer } from './components/ArchiveIndexDrawer';
+import { AdminDashboardModal } from './components/AdminDashboardModal';
+import {
+  ArchiveCatalog,
+  fetchPublicArchiveCatalog,
+  getDefaultArchiveCatalog,
+} from './services/archiveCloudService';
 
 function formatTimecode(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
@@ -39,20 +44,15 @@ function formatTimecode(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
 }
 
-const TOTAL_ARCHIVE_ROLLS = YEAR_CONFIGS.reduce(
-  (sum, cfg) => sum + (ARCHIVE_DATA[cfg.year]?.length ?? 0),
-  0
-);
-const TOTAL_ARCHIVE_REELS = YEAR_CONFIGS.reduce(
-  (sum, cfg) => sum + (MOTION_ARCHIVE_DATA[cfg.year]?.length ?? 0),
-  0
-);
-const NEWEST_YEAR = YEAR_CONFIGS[0]?.year ?? '2026';
-const OLDEST_YEAR = YEAR_CONFIGS[YEAR_CONFIGS.length - 1]?.year ?? '2019';
-
 export default function App() {
   const canvasMountRef = useRef<HTMLDivElement | null>(null);
   const sceneManagerRef = useRef<ArchiveSceneManager | null>(null);
+  const cloudSyncedRef = useRef(false);
+
+  const [catalog, setCatalog] = useState<ArchiveCatalog>(() => getDefaultArchiveCatalog());
+  const [isAdminOpen, setIsAdminOpen] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.location.hash === '#/admin'
+  );
 
   const [mode, setMode] = useState<ArchiveViewMode>('overview');
   const [activeYear, setActiveYear] = useState<ArchiveYear | null>(null);
@@ -145,6 +145,65 @@ export default function App() {
     };
   }, []);
 
+  const refreshCatalog = useCallback(async () => {
+    const next = await fetchPublicArchiveCatalog();
+    setRuntimeYearMap(next.years);
+    setCatalog(next);
+    if (next.cloudSeeded || cloudSyncedRef.current) {
+      cloudSyncedRef.current = next.cloudSeeded;
+      sceneManagerRef.current?.updateArchiveData(
+        next.years,
+        next.rollsByYear,
+        next.reelsByYear
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshCatalog();
+  }, [refreshCatalog]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      if (window.location.hash === '#/admin') {
+        setIsAdminOpen(true);
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  const handleOpenAdmin = useCallback(() => {
+    setIsAdminOpen(true);
+    if (window.location.hash !== '#/admin') {
+      window.history.replaceState(null, '', '#/admin');
+    }
+  }, []);
+
+  const handleCloseAdmin = useCallback(() => {
+    setIsAdminOpen(false);
+    if (window.location.hash === '#/admin') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, []);
+
+  const { totalRolls, totalReels, newestYear, oldestYear } = useMemo(() => {
+    const rSum = catalog.years.reduce(
+      (sum, cfg) => sum + (catalog.rollsByYear[cfg.year]?.length ?? 0),
+      0
+    );
+    const mSum = catalog.years.reduce(
+      (sum, cfg) => sum + (catalog.reelsByYear[cfg.year]?.length ?? 0),
+      0
+    );
+    return {
+      totalRolls: rSum,
+      totalReels: mSum,
+      newestYear: catalog.years[0]?.year ?? '—',
+      oldestYear: catalog.years[catalog.years.length - 1]?.year ?? '—',
+    };
+  }, [catalog]);
+
   const handleSelectOverview = useCallback(() => {
     sceneManagerRef.current?.goToOverview();
   }, []);
@@ -220,7 +279,7 @@ export default function App() {
   }, []);
 
   const displayYear = activeYear ?? hoveredYear;
-  const displayYearCfg = displayYear ? YEAR_MAP[displayYear] : null;
+  const displayYearCfg = displayYear ? getYearConfig(displayYear) : null;
 
   return (
     <div className="relative w-screen h-[100dvh] overflow-hidden bg-[#F6F3EE] text-[#222426] select-none">
@@ -267,7 +326,7 @@ export default function App() {
             )}
           </button>
 
-          {YEAR_CONFIGS.map((cfg) => {
+          {catalog.years.map((cfg) => {
             const isActive = activeYear === cfg.year;
             return (
               <button
@@ -294,8 +353,17 @@ export default function App() {
           })}
         </nav>
 
-        {/* Zone 3: Single Primary Action */}
-        <div className="order-2 md:order-3 flex items-center shrink-0">
+        {/* Zone 3: Admin & Archive Index Actions */}
+        <div className="order-2 md:order-3 flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleOpenAdmin}
+            aria-label="Open archive admin dashboard"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-normal tracking-wide text-[#222426] bg-[#F6F3EE] hover:bg-[#EAE5DC] border border-[#222426]/12 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#222426]"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Admin</span>
+          </button>
           <button
             type="button"
             onClick={() => setIsIndexOpen(true)}
@@ -359,23 +427,22 @@ export default function App() {
                   )}
                 </div>
                 <span className="text-[11px] sm:text-xs text-[#888C90] font-mono-tabular whitespace-nowrap shrink-0">
-                  {TOTAL_ARCHIVE_ROLLS} Rolls · {TOTAL_ARCHIVE_REELS} Reels · {OLDEST_YEAR}–
-                  {NEWEST_YEAR}
+                  {totalRolls} Rolls · {totalReels} Reels · {oldestYear}–{newestYear}
                 </span>
               </div>
             )}
 
             {/* DRAWER INSPECTION DOCK (Stills + Motion Dual Drawer) */}
             {mode === 'drawer' && activeYear && (() => {
-              const yearRollsCount = ARCHIVE_DATA[activeYear]?.length ?? 0;
-              const yearReelsCount = MOTION_ARCHIVE_DATA[activeYear]?.length ?? 0;
+              const yearRollsCount = catalog.rollsByYear[activeYear]?.length ?? 0;
+              const yearReelsCount = catalog.reelsByYear[activeYear]?.length ?? 0;
 
               return (
                 <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-4 w-full">
                   <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                     <span
                       className="inline-block w-2 h-4 shrink-0"
-                      style={{ backgroundColor: YEAR_MAP[activeYear].color }}
+                      style={{ backgroundColor: getYearConfig(activeYear).color }}
                       aria-hidden="true"
                     />
                     {activeCategory === 'stills' && hoveredRoll ? (
@@ -494,7 +561,7 @@ export default function App() {
                     <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                       <span
                         className="inline-block w-2 h-5 shrink-0"
-                        style={{ backgroundColor: YEAR_MAP[activeMotionReel.year].color }}
+                        style={{ backgroundColor: getYearConfig(activeMotionReel.year).color }}
                         aria-hidden="true"
                       />
                       <div className="min-w-0">
@@ -640,7 +707,7 @@ export default function App() {
                     <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                       <span
                         className="inline-block w-2 h-5 shrink-0"
-                        style={{ backgroundColor: YEAR_MAP[activeRoll.year].color }}
+                        style={{ backgroundColor: getYearConfig(activeRoll.year).color }}
                         aria-hidden="true"
                       />
                       <div className="min-w-0">
@@ -823,9 +890,19 @@ export default function App() {
         activeCategory={activeCategory}
         activeRollId={activeRoll?.id ?? null}
         activeMotionReelId={activeMotionReel?.id ?? null}
+        years={catalog.years}
+        rollsByYear={catalog.rollsByYear}
+        reelsByYear={catalog.reelsByYear}
         onClose={() => setIsIndexOpen(false)}
         onSelectRoll={handleJumpToRoll}
         onSelectMotionReel={handleJumpToMotionReel}
+      />
+
+      {/* Admin Dashboard Modal */}
+      <AdminDashboardModal
+        isOpen={isAdminOpen}
+        onClose={handleCloseAdmin}
+        onCatalogUpdated={refreshCatalog}
       />
     </div>
   );

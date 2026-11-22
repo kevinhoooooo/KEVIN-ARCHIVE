@@ -1,0 +1,364 @@
+{
+  "entities": {
+    "ArchiveSettings": {
+      "title": "ArchiveSettings",
+      "description": "Global archive publication settings controlling whether live Firestore records override static showcase defaults.",
+      "type": "object",
+      "properties": {
+        "cloudSeeded": {
+          "type": "boolean",
+          "description": "True once the admin has synced the archive into Firestore."
+        },
+        "archiveTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Top-level archive display name."
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the admin who updated settings."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update."
+        }
+      },
+      "required": ["cloudSeeded", "archiveTitle", "updatedBy", "updatedAt"]
+    },
+    "YearArchiveConfig": {
+      "title": "YearArchiveConfig",
+      "description": "Configuration for a single archive year cabinet.",
+      "type": "object",
+      "properties": {
+        "year": {
+          "type": "string",
+          "pattern": "^[0-9]{4}$",
+          "minLength": 4,
+          "maxLength": 4
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "minLength": 7,
+          "maxLength": 7
+        },
+        "tintHex": {
+          "type": "number"
+        },
+        "filmStock": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "iso": {
+          "type": "number"
+        },
+        "seriesTheme": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "cabinetX": {
+          "type": "number"
+        },
+        "sortOrder": {
+          "type": "number"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "year",
+        "label",
+        "color",
+        "tintHex",
+        "filmStock",
+        "iso",
+        "seriesTheme",
+        "cabinetX",
+        "sortOrder",
+        "enabled",
+        "ownerUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "FilmRollAlbum": {
+      "title": "FilmRollAlbum",
+      "description": "A 35mm film roll album containing visibility state, album metadata, and photo frames.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "year": {
+          "type": "string",
+          "pattern": "^[0-9]{4}$",
+          "minLength": 4,
+          "maxLength": 4
+        },
+        "rollNumber": {
+          "type": "number"
+        },
+        "rollCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "filmStock": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "iso": {
+          "type": "number"
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "month": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "frames": {
+          "type": "array"
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "year",
+        "rollNumber",
+        "rollCode",
+        "title",
+        "filmStock",
+        "iso",
+        "location",
+        "month",
+        "enabled",
+        "frames",
+        "ownerUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MotionReelAlbum": {
+      "title": "MotionReelAlbum",
+      "description": "A 16mm/Super-8 motion video reel containing visibility state, metadata, and optional external video stream URL.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "year": {
+          "type": "string",
+          "pattern": "^[0-9]{4}$",
+          "minLength": 4,
+          "maxLength": 4
+        },
+        "reelNumber": {
+          "type": "number"
+        },
+        "reelCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "filmStock": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "fps": {
+          "type": "number"
+        },
+        "durationSec": {
+          "type": "number"
+        },
+        "durationLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "camera": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "lens": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "month": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "videoUrl": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "keyframes": {
+          "type": "array"
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "year",
+        "reelNumber",
+        "reelCode",
+        "title",
+        "filmStock",
+        "format",
+        "fps",
+        "durationSec",
+        "durationLabel",
+        "camera",
+        "lens",
+        "location",
+        "month",
+        "notes",
+        "enabled",
+        "keyframes",
+        "ownerUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted administrator UID allowlist record.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "role", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/archiveSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/ArchiveSettings" },
+      "description": "Global archive sync flag and title."
+    },
+    "/years/{yearId}": {
+      "schema": { "$ref": "#/entities/YearArchiveConfig" },
+      "description": "Archive year cabinets with visibility toggle."
+    },
+    "/filmRolls/{rollId}": {
+      "schema": { "$ref": "#/entities/FilmRollAlbum" },
+      "description": "35mm still film roll albums with visibility switch and photo URLs."
+    },
+    "/motionReels/{reelId}": {
+      "schema": { "$ref": "#/entities/MotionReelAlbum" },
+      "description": "16mm motion reels with visibility switch and external video URLs."
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Trusted administrator UID registry."
+    }
+  }
+}

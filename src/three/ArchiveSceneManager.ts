@@ -13,6 +13,7 @@ import {
   MotionReel,
   PhotoFrame,
   YEAR_CONFIGS,
+  YearConfig,
 } from '../data/archiveData';
 import { CABINET_DIMS, CabinetInstance, buildCabinetModel } from './cabinetModel';
 import {
@@ -68,6 +69,10 @@ export class ArchiveSceneManager {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private controls: OrbitControls;
+
+  private activeYears: YearConfig[] = [...YEAR_CONFIGS];
+  private activeRollsByYear: Record<ArchiveYear, FilmRoll[]> = { ...ARCHIVE_DATA };
+  private activeReelsByYear: Record<ArchiveYear, MotionReel[]> = { ...MOTION_ARCHIVE_DATA };
 
   private cabinets = new Map<ArchiveYear, CabinetInstance>();
   private physicsMap = new Map<ArchiveYear, DrawerPhysicsSimulation>();
@@ -273,8 +278,9 @@ export class ArchiveSceneManager {
   }
 
   private getOverviewCameraPose() {
-    const totalCols = Math.min(4, Math.max(1, YEAR_CONFIGS.length));
-    const totalRows = Math.max(1, Math.ceil(YEAR_CONFIGS.length / 4));
+    const yearCount = Math.max(1, this.activeYears.length);
+    const totalCols = Math.min(4, yearCount);
+    const totalRows = Math.max(1, Math.ceil(yearCount / 4));
     const totalHeight = totalRows * CABINET_DIMS.CABINET_H + Math.max(0, totalRows - 1) * 0.02;
 
     const rawAspect =
@@ -350,14 +356,15 @@ export class ArchiveSceneManager {
 
   private setupArchives() {
     const maxAniso = this.renderer.capabilities.getMaxAnisotropy();
-    const total = YEAR_CONFIGS.length;
+    const total = this.activeYears.length;
 
-    YEAR_CONFIGS.forEach((cfg, idx) => {
-      const cabinet = buildCabinetModel(cfg, idx, total, maxAniso);
+    this.activeYears.forEach((cfg, idx) => {
+      const rolls = this.activeRollsByYear[cfg.year] ?? [];
+      const motionReels = this.activeReelsByYear[cfg.year] ?? [];
+      const cabinet = buildCabinetModel(cfg, idx, total, maxAniso, rolls.length, motionReels.length);
       this.scene.add(cabinet.cabinetRoot);
       this.cabinets.set(cfg.year, cabinet);
 
-      const rolls = ARCHIVE_DATA[cfg.year];
       const canisters: CanisterInstance[] = [];
 
       for (const roll of rolls) {
@@ -370,7 +377,6 @@ export class ArchiveSceneManager {
       const physics = new DrawerPhysicsSimulation(canisters);
       this.physicsMap.set(cfg.year, physics);
 
-      const motionReels = MOTION_ARCHIVE_DATA[cfg.year] ?? [];
       const cineReels: CineReelInstance[] = [];
       for (const mReel of motionReels) {
         const reelInst = buildCineReelModel(mReel, maxAniso);
@@ -380,6 +386,76 @@ export class ArchiveSceneManager {
       }
       this.motionTrayMap.set(cfg.year, new MotionTrayController(cineReels));
     });
+  }
+
+  public updateArchiveData(
+    years: YearConfig[],
+    rollsByYear: Record<ArchiveYear, FilmRoll[]>,
+    reelsByYear: Record<ArchiveYear, MotionReel[]>
+  ) {
+    if (this.disposed) return;
+
+    this.activeTimeline?.kill();
+    this.activeTimeline = null;
+    gsap.killTweensOf(this.camera.position);
+    gsap.killTweensOf(this.controls.target);
+
+    this.projectorStage.setProjectionActive(false);
+    this.projectorStage.rootGroup.visible = false;
+
+    if (this.activeFilmStrip) {
+      this.scene.remove(this.activeFilmStrip.group);
+      this.activeFilmStrip.dispose();
+      this.activeFilmStrip = null;
+    }
+
+    this.stageGroup.clear();
+    this.clearHoverStates();
+
+    this.cabinets.forEach((cab) => {
+      this.scene.remove(cab.cabinetRoot);
+      cab.dispose();
+    });
+    this.canistersById.forEach((c) => {
+      c.labelTex.dispose();
+      c.labelMat.dispose();
+    });
+    this.reelsById.forEach((r) => {
+      r.labelTex.dispose();
+      r.labelMat.dispose();
+    });
+
+    this.cabinets.clear();
+    this.physicsMap.clear();
+    this.motionTrayMap.clear();
+    this.canistersById.clear();
+    this.reelsById.clear();
+
+    this.activeMode = 'overview';
+    this.activeYear = null;
+    this.inspectedRoll = null;
+    this.inspectedCanister = null;
+    this.inspectedMotionReel = null;
+    this.inspectedCineReel = null;
+    this.targetFilmScrollX = 0;
+    this.currentFilmScrollX = 0;
+    this.isTransitioning = false;
+    this.controls.enabled = true;
+    this.renderer.domElement.style.cursor = 'grab';
+
+    this.activeYears = [...years];
+    this.activeRollsByYear = { ...rollsByYear };
+    this.activeReelsByYear = { ...reelsByYear };
+
+    this.setupArchives();
+
+    const pose = this.getOverviewCameraPose();
+    this.camera.position.copy(pose.camPos);
+    this.controls.target.copy(pose.target);
+    this.controls.update();
+
+    this.callbacks.onTransitionChange(false);
+    this.callbacks.onModeChange('overview', null, this.activeCategory, null, null);
   }
 
   // =========================================================================

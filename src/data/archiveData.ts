@@ -1,12 +1,4 @@
-export type ArchiveYear =
-  | '2026'
-  | '2025'
-  | '2024'
-  | '2023'
-  | '2022'
-  | '2021'
-  | '2020'
-  | '2019';
+export type ArchiveYear = string;
 
 export interface YearConfig {
   year: ArchiveYear;
@@ -17,6 +9,8 @@ export interface YearConfig {
   iso: number;
   seriesTheme: string;
   cabinetX: number;
+  sortOrder?: number;
+  enabled?: boolean;
 }
 
 export interface PhotoFrame {
@@ -44,10 +38,12 @@ export interface FilmRoll {
   rollNumber: number;
   rollCode: string;
   title: string;
+  description?: string;
   filmStock: string;
   iso: number;
   location: string;
   month: string;
+  enabled?: boolean;
   frames: PhotoFrame[];
 }
 
@@ -79,9 +75,19 @@ export interface MotionReel {
   location: string;
   month: string;
   notes: string;
+  enabled?: boolean;
   /** Optional real video file URL (.mp4/.webm); when omitted, renders smooth 24fps keyframe projection */
   videoUrl?: string;
   keyframes: MotionKeyframe[];
+}
+
+export function isSafeMediaUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) return true;
+  if (trimmed.length > 1000 || /\s/.test(trimmed)) return false;
+  if (/^https?:\/\//i.test(trimmed)) return true;
+  if (trimmed.startsWith('./') || trimmed.startsWith('/')) return true;
+  return false;
 }
 
 export function resolveAssetPath(assetPath: string): string {
@@ -192,6 +198,33 @@ export const YEAR_MAP: Record<ArchiveYear, YearConfig> = YEAR_CONFIGS.reduce(
   },
   {} as Record<ArchiveYear, YearConfig>
 );
+
+const runtimeYearMap: Record<string, YearConfig> = { ...YEAR_MAP };
+
+export function setRuntimeYearMap(years: YearConfig[]) {
+  for (const cfg of YEAR_CONFIGS) {
+    runtimeYearMap[cfg.year] = cfg;
+  }
+  for (const cfg of years) {
+    runtimeYearMap[cfg.year] = cfg;
+  }
+}
+
+export function getYearConfig(year: string): YearConfig {
+  return (
+    runtimeYearMap[year] ?? {
+      year,
+      label: year,
+      color: '#798B9C',
+      tintHex: 0x798b9c,
+      filmStock: 'PORTRA 400',
+      iso: 400,
+      seriesTheme: 'Personal Film Archive',
+      cabinetX: 0,
+      enabled: true,
+    }
+  );
+}
 
 interface RollSeed {
   title: string;

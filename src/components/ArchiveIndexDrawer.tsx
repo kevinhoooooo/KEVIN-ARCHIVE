@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowUpRight, Film, X } from 'lucide-react';
 import {
   ARCHIVE_DATA,
@@ -8,6 +8,7 @@ import {
   MOTION_ARCHIVE_DATA,
   MotionReel,
   YEAR_CONFIGS,
+  YearConfig,
 } from '../data/archiveData';
 
 interface ArchiveIndexDrawerProps {
@@ -16,21 +17,13 @@ interface ArchiveIndexDrawerProps {
   activeCategory?: DrawerCategory;
   activeRollId: string | null;
   activeMotionReelId?: string | null;
+  years?: YearConfig[];
+  rollsByYear?: Record<ArchiveYear, FilmRoll[]>;
+  reelsByYear?: Record<ArchiveYear, MotionReel[]>;
   onClose: () => void;
   onSelectRoll: (roll: FilmRoll) => void;
   onSelectMotionReel: (reel: MotionReel) => void;
 }
-
-const TOTAL_ROLLS = YEAR_CONFIGS.reduce(
-  (sum, cfg) => sum + (ARCHIVE_DATA[cfg.year]?.length ?? 0),
-  0
-);
-const TOTAL_REELS = YEAR_CONFIGS.reduce(
-  (sum, cfg) => sum + (MOTION_ARCHIVE_DATA[cfg.year]?.length ?? 0),
-  0
-);
-const NEWEST_YEAR = YEAR_CONFIGS[0]?.year ?? '2026';
-const OLDEST_YEAR = YEAR_CONFIGS[YEAR_CONFIGS.length - 1]?.year ?? '2019';
 
 type IndexCategoryFilter = 'all' | DrawerCategory;
 
@@ -40,6 +33,9 @@ export function ArchiveIndexDrawer({
   activeCategory = 'stills',
   activeRollId,
   activeMotionReelId = null,
+  years = YEAR_CONFIGS,
+  rollsByYear = ARCHIVE_DATA,
+  reelsByYear = MOTION_ARCHIVE_DATA,
   onClose,
   onSelectRoll,
   onSelectMotionReel,
@@ -47,12 +43,26 @@ export function ArchiveIndexDrawer({
   const [filterYear, setFilterYear] = useState<ArchiveYear | 'all'>(activeYear ?? 'all');
   const [filterCategory, setFilterCategory] = useState<IndexCategoryFilter>('all');
 
+  const { totalRolls, totalReels, newestYear, oldestYear } = useMemo(() => {
+    const rSum = years.reduce((sum, cfg) => sum + (rollsByYear[cfg.year]?.length ?? 0), 0);
+    const mSum = years.reduce((sum, cfg) => sum + (reelsByYear[cfg.year]?.length ?? 0), 0);
+    return {
+      totalRolls: rSum,
+      totalReels: mSum,
+      newestYear: years[0]?.year ?? '—',
+      oldestYear: years[years.length - 1]?.year ?? '—',
+    };
+  }, [years, rollsByYear, reelsByYear]);
+
   if (!isOpen) return null;
 
+  const effectiveYearFilter =
+    filterYear !== 'all' && !years.some((y) => y.year === filterYear) ? 'all' : filterYear;
+
   const visibleYears =
-    filterYear === 'all'
-      ? YEAR_CONFIGS
-      : YEAR_CONFIGS.filter((cfg) => cfg.year === filterYear);
+    effectiveYearFilter === 'all'
+      ? years
+      : years.filter((cfg) => cfg.year === effectiveYearFilter);
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-[#222426]/20">
@@ -68,7 +78,7 @@ export function ArchiveIndexDrawer({
               Archive Index
             </h2>
             <p className="text-xs text-[#888C90] mt-0.5 font-mono-tabular">
-              {TOTAL_ROLLS} Stills · {TOTAL_REELS} Motion Reels · {OLDEST_YEAR}–{NEWEST_YEAR}
+              {totalRolls} Stills · {totalReels} Motion Reels · {oldestYear}–{newestYear}
             </p>
           </div>
           <button
@@ -117,20 +127,20 @@ export function ArchiveIndexDrawer({
             type="button"
             onClick={() => setFilterYear('all')}
             className={`px-3 py-1.5 text-xs transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-              filterYear === 'all'
+              effectiveYearFilter === 'all'
                 ? 'bg-[#222426] text-[#F6F3EE]'
                 : 'text-[#6A6E72] hover:text-[#222426]'
             }`}
           >
             All Years
           </button>
-          {YEAR_CONFIGS.map((cfg) => (
+          {years.map((cfg) => (
             <button
               key={cfg.year}
               type="button"
               onClick={() => setFilterYear(cfg.year)}
               className={`px-3 py-1.5 text-xs font-mono-tabular transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                filterYear === cfg.year
+                effectiveYearFilter === cfg.year
                   ? 'bg-[#222426] text-[#F6F3EE]'
                   : 'text-[#6A6E72] hover:text-[#222426]'
               }`}
@@ -142,9 +152,14 @@ export function ArchiveIndexDrawer({
 
         {/* Scrollable Rolls & Reels List */}
         <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-8">
+          {visibleYears.length === 0 && (
+            <div className="py-12 text-center text-xs text-[#888C90] font-mono-tabular">
+              No public albums available yet.
+            </div>
+          )}
           {visibleYears.map((cfg) => {
-            const rolls = ARCHIVE_DATA[cfg.year] ?? [];
-            const reels = MOTION_ARCHIVE_DATA[cfg.year] ?? [];
+            const rolls = rollsByYear[cfg.year] ?? [];
+            const reels = reelsByYear[cfg.year] ?? [];
             const showStills = filterCategory === 'all' || filterCategory === 'stills';
             const showMotion = filterCategory === 'all' || filterCategory === 'motion';
 
@@ -248,6 +263,7 @@ export function ArchiveIndexDrawer({
                                 </p>
                                 <p className="text-xs font-light text-[#6A6E72] truncate">
                                   {roll.location}
+                                  {roll.description ? ` — ${roll.description}` : ''}
                                 </p>
                               </div>
                               <ArrowUpRight className="w-4 h-4 text-[#888C90] group-hover:text-[#222426] shrink-0 transition-colors" />

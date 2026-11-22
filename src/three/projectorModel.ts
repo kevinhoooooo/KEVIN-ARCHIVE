@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MotionReel } from '../data/archiveData';
+import { MotionReel, isSafeMediaUrl } from '../data/archiveData';
 import { REEL_DIMS } from './cineReelModel';
 import { getBeadBlastedMaps, getBrushedMetalMaps } from './textures';
 
@@ -828,14 +828,37 @@ export class ProjectorStageController {
 
     this.cleanupVideo();
 
-    if (reel.videoUrl) {
+    const loadKeyframesFallback = () => {
+      this.screenUniforms.uMap.value = this.canvasTex;
+      this.floorReflectUniforms.uMap.value = this.canvasTex;
+      this.beamUniforms.uMap.value = this.canvasTex;
+
+      reel.keyframes.forEach((kf) => {
+        if (!isSafeMediaUrl(kf.imageUrl)) return;
+        if (!this.imageCache.has(kf.imageUrl)) {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.referrerPolicy = 'no-referrer';
+          img.src = kf.imageUrl;
+          this.imageCache.set(kf.imageUrl, img);
+        }
+      });
+
+      this.drawProjectionFrame(0);
+    };
+
+    if (reel.videoUrl && isSafeMediaUrl(reel.videoUrl)) {
       const video = document.createElement('video');
-      video.src = reel.videoUrl;
       video.crossOrigin = 'anonymous';
       video.playsInline = true;
       video.loop = true;
       video.muted = this.isMuted;
+      video.src = reel.videoUrl;
       video.currentTime = this.currentTime;
+      video.onerror = () => {
+        this.cleanupVideo();
+        loadKeyframesFallback();
+      };
       void video.play().catch(() => {});
 
       const vTex = new THREE.VideoTexture(video);
@@ -849,21 +872,7 @@ export class ProjectorStageController {
       this.floorReflectUniforms.uMap.value = vTex;
       this.beamUniforms.uMap.value = vTex;
     } else {
-      this.screenUniforms.uMap.value = this.canvasTex;
-      this.floorReflectUniforms.uMap.value = this.canvasTex;
-      this.beamUniforms.uMap.value = this.canvasTex;
-
-      reel.keyframes.forEach((kf) => {
-        if (!this.imageCache.has(kf.imageUrl)) {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.referrerPolicy = 'no-referrer';
-          img.src = kf.imageUrl;
-          this.imageCache.set(kf.imageUrl, img);
-        }
-      });
-
-      this.drawProjectionFrame(0);
+      loadKeyframesFallback();
     }
   }
 
